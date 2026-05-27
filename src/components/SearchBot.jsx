@@ -1,5 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { search } from '../engine/search.js'
+import { ftsSearch } from '../engine/db.js'
+import { search as legacySearch } from '../engine/search.js'
+import { detectIntent, extractSearchTerms, extractListItems } from '../engine/queryParser.js'
+
+const SEARCH_TIPS = [
+  { q: 'project roadmap',   desc: 'Normal — finds notes containing both words (AND)' },
+  { q: '"exact phrase"',    desc: 'Quotes — match this phrase exactly in order' },
+  { q: '#project',          desc: 'Tag search — all notes tagged #project' },
+  { q: 'proj*',             desc: 'Prefix — matches project, projects, projector…' },
+  { q: 'list my ideas',     desc: 'LIST mode — extracts bullet points from results' },
+  { q: 'what are my tasks', desc: '"What are" auto-triggers list extraction' },
+]
 
 function formatRelativeDate(iso) {
   if (!iso) return ''
@@ -9,7 +20,10 @@ function formatRelativeDate(iso) {
   if (diff < 3600000)   return `${Math.floor(diff / 60000) || 1}m ago`
   if (diff < 86400000)  return `${Math.floor(diff / 3600000)}h ago`
   if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
+  return d.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric',
+    year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+  })
 }
 
 function renderSnippet(snippet) {
@@ -33,7 +47,7 @@ function BotMessage({ msg, onSelectNote }) {
     return (
       <div className="chat-bubble bot-bubble">
         <p>No notes found for <em>"{msg.query}"</em>.</p>
-        <p>Try different keywords or check your spelling.</p>
+        <p>Try different keywords, check spelling, or use <code>#tagname</code> to search by tag.</p>
       </div>
     )
   }
@@ -53,7 +67,6 @@ function BotMessage({ msg, onSelectNote }) {
                 {listItems.map((item, i) => <li key={i}>{item}</li>)}
               </ul>
             ) : (
-              // Fallback: show full note content so user can read it
               <div>
                 <p className="result-source" onClick={() => onSelectNote(note.id)}>
                   From: <span className="result-title-inline">{note.title || 'Untitled'}</span>
@@ -77,7 +90,14 @@ function BotMessage({ msg, onSelectNote }) {
               <span className="result-title">{note.title || 'Untitled'}</span>
               <span className="result-date">{formatRelativeDate(note.updatedAt)}</span>
             </div>
-            <p className="result-snippet">{renderSnippet(snippet) || <em className="no-preview">No preview available</em>}</p>
+            {note.tags?.length > 0 && (
+              <div className="result-tags">
+                {note.tags.map(t => <span key={t} className="result-tag">#{t}</span>)}
+              </div>
+            )}
+            <p className="result-snippet">
+              {renderSnippet(snippet) || <em className="no-preview">No preview available</em>}
+            </p>
             <div className="result-confidence">
               <div className="confidence-bar" style={{ width: `${Math.min(100, Math.round(score * 300))}%` }} />
             </div>
@@ -90,7 +110,8 @@ function BotMessage({ msg, onSelectNote }) {
 
 export default function SearchBot({ notes, onSelectNote }) {
   const [messages, setMessages] = useState([])
-  const [input, setInput] = useState('')
+  const [input,    setInput]    = useState('')
+  const [tipsOpen, setTipsOpen] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -100,11 +121,27 @@ export default function SearchBot({ notes, onSelectNote }) {
   function handleAsk() {
     const query = input.trim()
     if (!query) return
-    const { intent, results } = search(query, notes)
+
+    const intent     = detectIntent(query)
+    const cleanQuery = extractSearchTerms(query)
+
+    // FTS5 + BM25 (primary); fall back to legacy TF-IDF if DB not ready or no hits
+    let results = ftsSearch(cleanQuery, notes)
+    if (!results.length) {
+      const fallback = legacySearch(query, notes)
+      results = fallback.results
+    } else {
+      // Attach list items for LIST intent (FTS5 results don't include them)
+      results = results.map(r => ({
+        ...r,
+        listItems: extractListItems(r.note.content),
+      }))
+    }
+
     setMessages(prev => [
       ...prev,
       { type: 'user', text: query },
-      { type: 'bot', query, intent, results }
+      { type: 'bot', query, intent, results },
     ])
     setInput('')
   }
@@ -120,13 +157,37 @@ export default function SearchBot({ notes, onSelectNote }) {
     <div className="bot-panel">
       <div className="bot-header">
         <span>🔍 Ask your notes</span>
+        <button
+          className={`tips-help-btn${tipsOpen ? ' active' : ''}`}
+          onClick={() => setTipsOpen(o => !o)}
+          title="Search tips"
+        >? Help</button>
       </div>
+
+      {tipsOpen && (
+        <div className="search-tips-panel">
+          <p className="tips-heading">Search tips — click any example to try it:</p>
+          <ul className="search-tips-list">
+            {SEARCH_TIPS.map(({ q, desc }) => (
+              <li key={q}>
+                <code
+                  className="tip-query"
+                  onClick={() => { setInput(q); setTipsOpen(false) }}
+                  title="Click to try"
+                >{q}</code>
+                <span className="tip-desc">{desc}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="bot-messages">
-        {messages.length === 0 && (
+        {messages.length === 0 && !tipsOpen && (
           <div className="bot-empty">
             <p>Ask anything about your notes.</p>
             <p className="bot-hint">
-              Try: <em>"list my projects"</em>, <em>"dentist appointment"</em>, <em>"show ideas"</em>
+              Try: <em>"list my projects"</em>, <em>"dentist appointment"</em>, <em>#idea</em>
             </p>
           </div>
         )}
@@ -135,22 +196,20 @@ export default function SearchBot({ notes, onSelectNote }) {
         ))}
         <div ref={bottomRef} />
       </div>
+
       <div className="bot-input-area">
         <input
           className="bot-input"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKey}
-          placeholder={notes.length === 0 ? 'Add some notes first…' : 'Ask about your notes…'}
-          disabled={notes.length === 0}
+          placeholder="Search your notes…"
         />
         <button
           className="bot-send"
           onClick={handleAsk}
-          disabled={!input.trim() || notes.length === 0}
-        >
-          Ask
-        </button>
+          disabled={!input.trim()}
+        >Ask</button>
       </div>
     </div>
   )

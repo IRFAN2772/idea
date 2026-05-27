@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
-import { loadNotes, saveNotes, createNote } from './store/notesStore.js'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { initDB, getAllNotes, upsertNote as dbUpsert, deleteNote as dbDelete } from './engine/db.js'
+import { createNote } from './store/notesStore.js'
 import NoteList from './components/NoteList.jsx'
 import NoteEditor from './components/NoteEditor.jsx'
 import SearchBot from './components/SearchBot.jsx'
+import AboutModal from './components/AboutModal.jsx'
 import './App.css'
 
 function EmptyEditor({ onNew }) {
@@ -16,31 +18,56 @@ function EmptyEditor({ onNew }) {
   )
 }
 
-function App() {
-  const [notes, setNotes] = useState(() => loadNotes())
+export default function App() {
+  const [notes,        setNotes]        = useState([])
   const [activeNoteId, setActiveNoteId] = useState(null)
-  const [botOpen, setBotOpen] = useState(true)
+  const [botOpen,      setBotOpen]      = useState(true)
+  const [aboutOpen,    setAboutOpen]    = useState(false)
+  const [dbReady,      setDbReady]      = useState(false)
+
+  // Keep a ref so callbacks never close over stale notes state
+  const notesRef = useRef(notes)
+  useEffect(() => { notesRef.current = notes }, [notes])
+
+  // Initialise SQLite (loads WASM, migrates localStorage data if first run)
+  useEffect(() => {
+    initDB().then(() => {
+      setNotes(getAllNotes())
+      setDbReady(true)
+    })
+  }, [])
 
   const activeNote = notes.find(n => n.id === activeNoteId) ?? null
 
-  useEffect(() => { saveNotes(notes) }, [notes])
-
   const addNote = useCallback(() => {
     const n = createNote()
-    setNotes(p => [n, ...p])
+    dbUpsert(n)
+    setNotes(getAllNotes())
     setActiveNoteId(n.id)
   }, [])
 
   const updateNote = useCallback((id, changes) => {
-    setNotes(p => p.map(n =>
-      n.id === id ? { ...n, ...changes, updatedAt: new Date().toISOString() } : n
-    ))
+    const existing = notesRef.current.find(n => n.id === id)
+    if (!existing) return
+    const updated = { ...existing, ...changes, updatedAt: new Date().toISOString() }
+    dbUpsert(updated)
+    setNotes(getAllNotes())
   }, [])
 
-  const deleteNote = useCallback((id) => {
-    setNotes(p => p.filter(n => n.id !== id))
+  const deleteNoteHandler = useCallback((id) => {
+    dbDelete(id)
+    setNotes(getAllNotes())
     setActiveNoteId(prev => prev === id ? null : prev)
   }, [])
+
+  if (!dbReady) {
+    return (
+      <div className="db-loading">
+        <div className="db-loading-spinner" />
+        <p>Loading your notes…</p>
+      </div>
+    )
+  }
 
   return (
     <div className={`app${botOpen ? ' bot-open' : ''}`}>
@@ -49,9 +76,10 @@ function App() {
         activeNoteId={activeNoteId}
         onSelect={setActiveNoteId}
         onNew={addNote}
-        onDelete={deleteNote}
+        onDelete={deleteNoteHandler}
         botOpen={botOpen}
         onToggleBot={() => setBotOpen(o => !o)}
+        onAbout={() => setAboutOpen(true)}
       />
       <main className="editor-area">
         {activeNote
@@ -62,8 +90,7 @@ function App() {
       {botOpen && (
         <SearchBot notes={notes} onSelectNote={setActiveNoteId} />
       )}
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </div>
   )
 }
-
-export default App

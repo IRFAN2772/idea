@@ -28,29 +28,42 @@ function NoteCard({ note, isActive, onSelect, onDelete }) {
             className="note-delete-btn"
             onClick={e => { e.stopPropagation(); onDelete(note.id) }}
             title="Delete note"
-          >
-            ✕
-          </button>
+          >✕</button>
         )}
       </div>
       <p className="note-card-preview">{preview}</p>
+      {note.tags?.length > 0 && (
+        <div className="note-card-tags">
+          {note.tags.slice(0, 3).map(t => (
+            <span key={t} className="note-card-tag">#{t}</span>
+          ))}
+          {note.tags.length > 3 && (
+            <span className="note-card-tag-more">+{note.tags.length - 3}</span>
+          )}
+        </div>
+      )}
       <span className="note-card-date">{formatDate(note.updatedAt)}</span>
     </div>
   )
 }
 
-export default function NoteList({ notes, activeNoteId, onSelect, onNew, onDelete, botOpen, onToggleBot }) {
+export default function NoteList({ notes, activeNoteId, onSelect, onNew, onDelete, botOpen, onToggleBot, onAbout }) {
   return (
     <div className="notes-sidebar">
       <div className="sidebar-header">
         <span className="app-logo">💡 idea</span>
-        <button
-          className={`bot-toggle-btn${botOpen ? ' active' : ''}`}
-          onClick={onToggleBot}
-          title={botOpen ? 'Hide search bot' : 'Show search bot'}
-        >
-          🔍
-        </button>
+        <div className="sidebar-header-btns">
+          <button
+            className="icon-btn"
+            onClick={onAbout}
+            title="About this app"
+          >ℹ️</button>
+          <button
+            className={`bot-toggle-btn${botOpen ? ' active' : ''}`}
+            onClick={onToggleBot}
+            title={botOpen ? 'Hide search bot' : 'Show search bot'}
+          >🔍</button>
+        </div>
       </div>
       <button className="new-note-btn" onClick={onNew}>+ New Note</button>
       <div className="note-list">
