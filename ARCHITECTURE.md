@@ -10,15 +10,15 @@ Everything runs **100% locally in your browser** — no server, no cloud, no API
 
 ## Tech Stack
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| **UI Framework** | React 19 | Component-based UI with hooks for state management |
-| **Build Tool** | Vite 8 | Instant HMR, ES module dev server, fast production builds |
-| **Database** | SQLite (via sql.js) | Full relational DB running in-browser via WebAssembly |
-| **Full-Text Search** | SQLite FTS5 | BM25 ranking, Porter stemmer, prefix matching — all in WASM |
-| **Persistence** | IndexedDB | Stores the SQLite binary file (up to ~50MB), survives page reloads |
-| **Fallback Search** | Custom TF-IDF engine | Levenshtein fuzzy matching when FTS5 returns nothing |
-| **Styling** | Plain CSS | No CSS framework — lightweight, no dependencies |
+| Layer                | Technology           | Why                                                                |
+| -------------------- | -------------------- | ------------------------------------------------------------------ |
+| **UI Framework**     | React 19             | Component-based UI with hooks for state management                 |
+| **Build Tool**       | Vite 8               | Instant HMR, ES module dev server, fast production builds          |
+| **Database**         | SQLite (via sql.js)  | Full relational DB running in-browser via WebAssembly              |
+| **Full-Text Search** | SQLite FTS5          | BM25 ranking, Porter stemmer, prefix matching — all in WASM        |
+| **Persistence**      | IndexedDB            | Stores the SQLite binary file (up to ~50MB), survives page reloads |
+| **Fallback Search**  | Custom TF-IDF engine | Levenshtein fuzzy matching when FTS5 returns nothing               |
+| **Styling**          | Plain CSS            | No CSS framework — lightweight, no dependencies                    |
 
 ---
 
@@ -140,6 +140,7 @@ Results rendered as chat bubbles:
 FTS5 is SQLite's built-in full-text search extension. It creates an **inverted index** inside the database file itself.
 
 **Schema:**
+
 ```sql
 CREATE VIRTUAL TABLE notes_fts USING fts5(
     note_id  UNINDEXED,   -- carried along, not searchable
@@ -152,16 +153,17 @@ CREATE VIRTUAL TABLE notes_fts USING fts5(
 
 **What this gives us:**
 
-| Feature | How it works |
-|---------|-------------|
-| **BM25 Ranking** | Okapi BM25 algorithm — same as Elasticsearch. Rare specific words score higher than common ones. |
-| **Porter Stemmer** | "running" → "run", "projects" → "project", "ideas" → "idea" — automatic word normalization |
-| **Prefix Search** | `proj*` matches project, projects, projector — user types partial word, still finds results |
-| **Phrase Matching** | `"exact phrase"` matches those words in that exact order |
-| **Column Filtering** | `tags:project` searches only the tags column |
-| **Snippet Extraction** | `snippet()` function returns surrounding text with match markers |
+| Feature                | How it works                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| **BM25 Ranking**       | Okapi BM25 algorithm — same as Elasticsearch. Rare specific words score higher than common ones. |
+| **Porter Stemmer**     | "running" → "run", "projects" → "project", "ideas" → "idea" — automatic word normalization       |
+| **Prefix Search**      | `proj*` matches project, projects, projector — user types partial word, still finds results      |
+| **Phrase Matching**    | `"exact phrase"` matches those words in that exact order                                         |
+| **Column Filtering**   | `tags:project` searches only the tags column                                                     |
+| **Snippet Extraction** | `snippet()` function returns surrounding text with match markers                                 |
 
 **Why BM25 beats simple text search:**
+
 - "project" appearing in 1 note out of 100 scores WAY higher than "the" appearing in 95/100
 - Short notes aren't penalized vs long notes (length normalization)
 - Multiple occurrences have diminishing returns (term saturation)
@@ -196,14 +198,17 @@ fuzzy.js         → Levenshtein distance: expand query tokens to vocab words 1 
 ### Query Parser (`queryParser.js`)
 
 **Intent Detection:**
+
 - Triggers LIST: "list", "show", "give", "what are", "what is"
 - Everything else: FIND (default)
 
 **Term Extraction:**
+
 - Strips question/filler words: what, which, who, where, my, the, things, stuff
 - Keeps only meaningful content keywords
 
 **List Extraction** (from note content):
+
 - Pass 1: Formatted lists (`- item`, `1. item`, `[x] item`)
 - Pass 2: Colon-separated inline lists (`Tech: React, Node, SQLite`)
 
@@ -263,27 +268,33 @@ Without tags, searching "project" scans all title + content text. With a `#proje
 ### Three-Panel Layout (CSS Grid)
 
 ```css
-.app { grid-template-columns: 240px 1fr; }       /* bot closed */
-.app.bot-open { grid-template-columns: 240px 1fr 320px; }  /* bot open */
+.app {
+  grid-template-columns: 240px 1fr;
+} /* bot closed */
+.app.bot-open {
+  grid-template-columns: 240px 1fr 320px;
+} /* bot open */
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility |
-|-----------|---------------|
-| `App.jsx` | DB initialization, notes state, CRUD callbacks, layout shell |
-| `NoteList.jsx` | Render note cards, handle selection/deletion, about/search toggle |
-| `NoteEditor.jsx` | Edit title/content/tags, debounced autosave, writing tips |
-| `SearchBot.jsx` | Chat interface, query handling, result rendering |
-| `AboutModal.jsx` | Static info modal explaining the app |
+| Component        | Responsibility                                                    |
+| ---------------- | ----------------------------------------------------------------- |
+| `App.jsx`        | DB initialization, notes state, CRUD callbacks, layout shell      |
+| `NoteList.jsx`   | Render note cards, handle selection/deletion, about/search toggle |
+| `NoteEditor.jsx` | Edit title/content/tags, debounced autosave, writing tips         |
+| `SearchBot.jsx`  | Chat interface, query handling, result rendering                  |
+| `AboutModal.jsx` | Static info modal explaining the app                              |
 
 ### State Management
 
 No external state library. React `useState` + `useCallback` + a ref pattern:
 
 ```jsx
-const notesRef = useRef(notes)
-useEffect(() => { notesRef.current = notes }, [notes])
+const notesRef = useRef(notes);
+useEffect(() => {
+  notesRef.current = notes;
+}, [notes]);
 ```
 
 This ensures callbacks (which are memoized with `useCallback`) never close over stale state.
@@ -292,17 +303,17 @@ This ensures callbacks (which are memoized with `useCallback`) never close over 
 
 ## Key Design Decisions
 
-| Decision | Reasoning |
-|----------|-----------|
-| sql.js instead of server SQLite | Zero deployment complexity, works offline, no CORS/API issues |
-| IndexedDB for persistence | Larger storage than localStorage (50MB vs 5MB), binary-safe |
-| FTS5 as primary search | Professional-grade ranking (BM25) with zero infrastructure |
-| TF-IDF as fallback | Handles fuzzy typos that FTS5 strict matching would miss |
-| Debounced saves (500ms) | Doesn't hammer the DB on every keystroke |
-| Debounced persist (800ms) | Doesn't write to IndexedDB on every DB change |
-| WASM in public/ | Avoids Vite bundling issues with WebAssembly modules |
-| Porter stemmer (built into FTS5) | Handles word variations without manual synonym lists |
-| Tags as both JSON + FTS text | JSON for display, space-separated text for full-text indexing |
+| Decision                         | Reasoning                                                     |
+| -------------------------------- | ------------------------------------------------------------- |
+| sql.js instead of server SQLite  | Zero deployment complexity, works offline, no CORS/API issues |
+| IndexedDB for persistence        | Larger storage than localStorage (50MB vs 5MB), binary-safe   |
+| FTS5 as primary search           | Professional-grade ranking (BM25) with zero infrastructure    |
+| TF-IDF as fallback               | Handles fuzzy typos that FTS5 strict matching would miss      |
+| Debounced saves (500ms)          | Doesn't hammer the DB on every keystroke                      |
+| Debounced persist (800ms)        | Doesn't write to IndexedDB on every DB change                 |
+| WASM in public/                  | Avoids Vite bundling issues with WebAssembly modules          |
+| Porter stemmer (built into FTS5) | Handles word variations without manual synonym lists          |
+| Tags as both JSON + FTS text     | JSON for display, space-separated text for full-text indexing |
 
 ---
 
@@ -316,6 +327,7 @@ score(query, note) = Σ  IDF(term) × (tf × (k1 + 1)) / (tf + k1 × (1 - b + b 
 ```
 
 Where:
+
 - **IDF(term)** = how rare this word is across all notes (rare = higher score)
 - **tf** = how many times the word appears in this note
 - **k1** = term saturation parameter (default 1.2)
@@ -324,6 +336,7 @@ Where:
 - **avgDL** = average length of all notes
 
 **In practice this means:**
+
 - A note titled "Project Roadmap" with content about projects will score very high for "project roadmap"
 - A long note that mentions "project" once will score lower than a short note focused on it
 - Common words like "the", "is", "and" contribute almost nothing to the score
