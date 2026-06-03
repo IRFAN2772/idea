@@ -1,11 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { ftsSearch } from "../engine/db.js";
-import { search as legacySearch } from "../engine/search.js";
-import {
-  detectIntent,
-  extractSearchTerms,
-  extractListItems,
-} from "../engine/queryParser.js";
+import { search } from "../engine/search.js";
+import { detectIntent } from "../engine/queryParser.js";
 
 const SEARCH_TIPS = [
   {
@@ -173,20 +168,9 @@ export default function SearchBot({ notes, onSelectNote }) {
     if (!query) return;
 
     const intent = detectIntent(query);
-    const cleanQuery = extractSearchTerms(query);
 
-    // FTS5 + BM25 (primary); fall back to legacy TF-IDF if DB not ready or no hits
-    let results = ftsSearch(cleanQuery, notes);
-    if (!results.length) {
-      const fallback = legacySearch(query, notes);
-      results = fallback.results;
-    } else {
-      // Attach list items for LIST intent (FTS5 results don't include them)
-      results = results.map((r) => ({
-        ...r,
-        listItems: extractListItems(r.note.content),
-      }));
-    }
+    // JS-based search with TF-IDF, inverted index, and fuzzy matching
+    const { results } = search(query, notes);
 
     setMessages((prev) => [
       ...prev,

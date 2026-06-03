@@ -1,7 +1,7 @@
 export function createNote() {
   return {
     id: crypto.randomUUID(),
-    title: "Untitled",
+    title: "",
     content: "",
     tags: [],
     createdAt: new Date().toISOString(),
