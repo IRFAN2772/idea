@@ -68,7 +68,7 @@ export default function NoteList({
   onImport,
 }) {
   return (
-    <div className="notes-sidebar">
+    <>
       <div className="sidebar-header">
         <span className="app-logo">💡 idea</span>
         <div className="sidebar-header-btns">
@@ -112,6 +112,6 @@ export default function NoteList({
           ))
         )}
       </div>
-    </div>
+    </>
   );
 }

@@ -2,6 +2,7 @@
 .app {
   display: grid;
   grid-template-columns: 240px 1fr;
+  grid-template-rows: 1fr;
   height: 100vh;
   overflow: hidden;
 }
@@ -16,6 +17,7 @@
   background: #fff;
   border-right: 1px solid #e5e7eb;
   overflow: hidden;
+  height: 100%;
 }
 .sidebar-header {
   display: flex;
@@ -237,9 +239,10 @@
 .bot-panel {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #e5e7eb;
   background: #f8f7ff;
   overflow: hidden;
+  flex: 1;
+  height: 100%;
 }
 .bot-messages {
   flex: 1;
@@ -855,79 +858,176 @@
   display: none;
 }
 
-/* ── Tablet (≤1024px): hide bot by default, narrower sidebar ────────────── */
-@media (max-width: 1024px) {
-  .app {
-    grid-template-columns: 200px 1fr;
-  }
-  .app.bot-open {
-    grid-template-columns: 200px 1fr 280px;
-  }
-  .note-editor {
-    padding: 24px 28px 0;
-  }
+/* ── Mobile top bar (hamburger) ─────────────────────────────────────────── */
+.mobile-topbar {
+  display: none;
+}
+.hamburger-btn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 18px;
+  color: #374151;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.hamburger-btn:hover,
+.hamburger-btn.active {
+  background: #eef2ff;
+  border-color: #a5b4fc;
+  color: #4f46e5;
+}
+.mobile-topbar-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
 }
 
-/* ── Mobile (≤768px): single-panel stacked navigation ───────────────────── */
-@media (max-width: 768px) {
+/* ── Drawer backdrop ────────────────────────────────────────────────────── */
+.drawer-backdrop {
+  display: none;
+}
+
+/* ── Bot panel wrapper (desktop) ────────────────────────────────────────── */
+.bot-panel-wrapper {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid #e5e7eb;
+}
+.bot-panel-wrapper.hidden-panel {
+  display: none;
+}
+
+/* ── Tablet (≤1024px): sidebar & bot become overlay drawers ─────────────── */
+@media (max-width: 1024px) {
   .app {
     display: flex;
     flex-direction: column;
     grid-template-columns: unset;
+    height: 100vh;
+    overflow: hidden;
   }
   .app.bot-open {
     grid-template-columns: unset;
   }
 
-  /* Show one panel at a time */
-  .notes-sidebar,
-  .editor-area,
-  .bot-panel {
-    display: none;
-    width: 100%;
-    height: 100vh;
-    flex-shrink: 0;
-  }
-
-  .app.mobile-view-list .notes-sidebar {
-    display: flex;
-  }
-  .app.mobile-view-editor .editor-area {
-    display: flex;
-  }
-  .app.mobile-view-bot .bot-panel {
-    display: flex;
-  }
-
-  /* Mobile editor header */
-  .mobile-editor-header {
+  /* Top bar visible */
+  .mobile-topbar {
     display: flex;
     align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb;
+    justify-content: space-between;
+    padding: 10px 16px;
     background: #fff;
+    border-bottom: 1px solid #e5e7eb;
     flex-shrink: 0;
+    z-index: 50;
   }
 
-  /* Bot back button visible on mobile */
+  /* Editor takes all remaining space */
+  .editor-area {
+    flex: 1;
+    min-height: 0;
+  }
+  .note-editor {
+    padding: 20px 20px 0;
+  }
+
+  /* Sidebar becomes a left drawer */
+  .notes-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 200;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  .notes-sidebar.drawer-open {
+    transform: translateX(0);
+  }
+
+  /* Bot panel becomes a right drawer */
+  .bot-panel-wrapper {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 320px;
+    height: 100vh;
+    z-index: 200;
+    background: #f8f7ff;
+    border-left: 1px solid #e5e7eb;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    display: flex !important;
+  }
+  .bot-panel-wrapper.hidden-panel {
+    display: flex !important;
+    transform: translateX(100%);
+  }
+  .bot-panel-wrapper.drawer-open {
+    transform: translateX(0);
+  }
+
+  /* Bot back button visible */
   .bot-back-btn {
     display: inline;
   }
 
-  /* Editor adjustments */
+  /* Backdrop */
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 150;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Hide desktop-only sidebar bot toggle (use topbar instead) */
+  .bot-toggle-btn {
+    display: none;
+  }
+
+  /* Modal adjustments */
+  .modal-box {
+    max-width: 90vw;
+  }
+}
+
+/* ── Mobile (≤768px): narrower drawers, touch-friendly ──────────────────── */
+@media (max-width: 768px) {
+  .notes-sidebar {
+    width: 85vw;
+    max-width: 320px;
+  }
+  .bot-panel-wrapper {
+    width: 90vw;
+    max-width: 360px;
+  }
   .note-editor {
     padding: 16px 16px 0;
   }
   .editor-title {
     font-size: 20px;
   }
-
-  /* Sidebar full width */
-  .notes-sidebar {
-    border-right: none;
+  .editor-content {
+    font-size: 14px;
   }
-
-  /* Modal adjustments */
+  .mobile-topbar {
+    padding: 10px 12px;
+  }
   .modal-box {
     max-width: 95vw;
     margin: 0 8px;
@@ -937,5 +1037,47 @@
   }
   .modal-body {
     padding: 18px 20px;
+  }
+
+  /* Bigger touch targets */
+  .note-card {
+    padding: 12px 14px;
+  }
+  .new-note-btn {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  .icon-btn {
+    padding: 6px 10px;
+    font-size: 15px;
+  }
+  .sidebar-header {
+    padding: 14px 14px;
+  }
+}
+
+/* ── Small phones (≤480px) ──────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .notes-sidebar {
+    width: 100vw;
+    max-width: none;
+    border-right: none;
+    box-shadow: none;
+  }
+  .bot-panel-wrapper {
+    width: 100vw;
+    max-width: none;
+    border-left: none;
+    box-shadow: none;
+  }
+  .note-editor {
+    padding: 12px 12px 0;
+  }
+  .editor-title {
+    font-size: 18px;
+    padding-bottom: 10px;
+  }
+  .tags-row {
+    padding: 6px 0;
   }
 }

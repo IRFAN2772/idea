@@ -132,25 +132,42 @@ export default function App() {
   }
 
   return (
-    <div className={`app${botOpen ? " bot-open" : ""} mobile-view-${mobileView}`}>
-      <NoteList
-        notes={notes}
-        activeNoteId={activeNoteId}
-        onSelect={handleSelectNote}
-        onNew={addNote}
-        onDelete={deleteNoteHandler}
-        botOpen={botOpen}
-        onToggleBot={() => { setBotOpen((o) => !o); setMobileView("bot"); }}
-        onAbout={() => setAboutOpen(true)}
-        onExport={handleExport}
-        onImport={handleImport}
-      />
+    <div className={`app${botOpen ? " bot-open" : ""}`}>
+      {/* Mobile top bar */}
+      <header className="mobile-topbar">
+        <button className="hamburger-btn" onClick={() => setMobileView(mobileView === "list" ? "editor" : "list")}>
+          ☰
+        </button>
+        <span className="mobile-topbar-title">💡 idea</span>
+        <button
+          className={`hamburger-btn${botOpen && mobileView === "bot" ? " active" : ""}`}
+          onClick={() => { setBotOpen(true); setMobileView(mobileView === "bot" ? "editor" : "bot"); }}
+        >
+          🔍
+        </button>
+      </header>
+
+      {/* Overlay backdrop */}
+      {(mobileView === "list" || mobileView === "bot") && (
+        <div className="drawer-backdrop" onClick={() => setMobileView("editor")} />
+      )}
+
+      <aside className={`notes-sidebar${mobileView === "list" ? " drawer-open" : ""}`}>
+        <NoteList
+          notes={notes}
+          activeNoteId={activeNoteId}
+          onSelect={(id) => { handleSelectNote(id); setMobileView("editor"); }}
+          onNew={() => { addNote(); setMobileView("editor"); }}
+          onDelete={deleteNoteHandler}
+          botOpen={botOpen}
+          onToggleBot={() => { setBotOpen((o) => !o); setMobileView("bot"); }}
+          onAbout={() => setAboutOpen(true)}
+          onExport={handleExport}
+          onImport={handleImport}
+        />
+      </aside>
+
       <main className="editor-area">
-        <div className="mobile-editor-header">
-          <button className="mobile-back-btn" onClick={() => setMobileView("list")}>
-            ← Notes
-          </button>
-        </div>
         {activeNote ? (
           <NoteEditor
             key={activeNote.id}
@@ -161,13 +178,15 @@ export default function App() {
           <EmptyEditor onNew={addNote} />
         )}
       </main>
-      {botOpen && (
+
+      <aside className={`bot-panel-wrapper${mobileView === "bot" ? " drawer-open" : ""}${botOpen ? "" : " hidden-panel"}`}>
         <SearchBot
           notes={notes}
-          onSelectNote={handleSelectNote}
-          onBack={() => setMobileView("list")}
+          onSelectNote={(id) => { handleSelectNote(id); setMobileView("editor"); }}
+          onBack={() => setMobileView("editor")}
         />
-      )}
+      </aside>
+
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </div>
   );
