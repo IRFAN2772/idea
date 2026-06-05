@@ -31,6 +31,7 @@ export default function App() {
   const [botOpen, setBotOpen] = useState(true);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [dbReady, setDbReady] = useState(false);
+  const [mobileView, setMobileView] = useState("list"); // "list" | "editor" | "bot"
 
   // Keep a ref so callbacks never close over stale notes state
   const notesRef = useRef(notes);
@@ -53,6 +54,7 @@ export default function App() {
     dbUpsert(n);
     setNotes(getAllNotes());
     setActiveNoteId(n.id);
+    setMobileView("editor");
   }, []);
 
   const updateNote = useCallback((id, changes) => {
@@ -73,6 +75,53 @@ export default function App() {
     setActiveNoteId((prev) => (prev === id ? null : prev));
   }, []);
 
+  const handleSelectNote = useCallback((id) => {
+    setActiveNoteId(id);
+    setMobileView("editor");
+  }, []);
+
+  const handleExport = useCallback(() => {
+    const data = JSON.stringify(notes, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `idea-notes-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [notes]);
+
+  const handleImport = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const imported = JSON.parse(ev.target.result);
+          if (!Array.isArray(imported)) return;
+          for (const n of imported) {
+            if (!n.id || !n.createdAt) continue;
+            dbUpsert({
+              id: n.id,
+              title: n.title ?? "",
+              content: n.content ?? "",
+              tags: n.tags ?? [],
+              createdAt: n.createdAt,
+              updatedAt: n.updatedAt ?? n.createdAt,
+            });
+          }
+          setNotes(getAllNotes());
+        } catch { /* invalid file */ }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, []);
+
   if (!dbReady) {
     return (
       <div className="db-loading">
@@ -83,18 +132,25 @@ export default function App() {
   }
 
   return (
-    <div className={`app${botOpen ? " bot-open" : ""}`}>
+    <div className={`app${botOpen ? " bot-open" : ""} mobile-view-${mobileView}`}>
       <NoteList
         notes={notes}
         activeNoteId={activeNoteId}
-        onSelect={setActiveNoteId}
+        onSelect={handleSelectNote}
         onNew={addNote}
         onDelete={deleteNoteHandler}
         botOpen={botOpen}
-        onToggleBot={() => setBotOpen((o) => !o)}
+        onToggleBot={() => { setBotOpen((o) => !o); setMobileView("bot"); }}
         onAbout={() => setAboutOpen(true)}
+        onExport={handleExport}
+        onImport={handleImport}
       />
       <main className="editor-area">
+        <div className="mobile-editor-header">
+          <button className="mobile-back-btn" onClick={() => setMobileView("list")}>
+            ← Notes
+          </button>
+        </div>
         {activeNote ? (
           <NoteEditor
             key={activeNote.id}
@@ -105,7 +161,13 @@ export default function App() {
           <EmptyEditor onNew={addNote} />
         )}
       </main>
-      {botOpen && <SearchBot notes={notes} onSelectNote={setActiveNoteId} />}
+      {botOpen && (
+        <SearchBot
+          notes={notes}
+          onSelectNote={handleSelectNote}
+          onBack={() => setMobileView("list")}
+        />
+      )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </div>
   );

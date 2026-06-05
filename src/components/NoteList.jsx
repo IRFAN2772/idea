@@ -64,12 +64,20 @@ export default function NoteList({
   botOpen,
   onToggleBot,
   onAbout,
+  onExport,
+  onImport,
 }) {
   return (
     <div className="notes-sidebar">
       <div className="sidebar-header">
         <span className="app-logo">💡 idea</span>
         <div className="sidebar-header-btns">
+          <button className="icon-btn" onClick={onImport} title="Import notes">
+            📥
+          </button>
+          <button className="icon-btn" onClick={onExport} title="Export notes">
+            📤
+          </button>
           <button className="icon-btn" onClick={onAbout} title="About this app">
             ℹ️
           </button>

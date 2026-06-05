@@ -153,7 +153,7 @@ function BotMessage({ msg, onSelectNote }) {
   );
 }
 
-export default function SearchBot({ notes, onSelectNote }) {
+export default function SearchBot({ notes, onSelectNote, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [tipsOpen, setTipsOpen] = useState(false);
@@ -190,6 +190,9 @@ export default function SearchBot({ notes, onSelectNote }) {
   return (
     <div className="bot-panel">
       <div className="bot-header">
+        <button className="mobile-back-btn bot-back-btn" onClick={onBack}>
+          ← Back
+        </button>
         <span>🔍 Ask your notes</span>
         <button
           className={`tips-help-btn${tipsOpen ? " active" : ""}`}
